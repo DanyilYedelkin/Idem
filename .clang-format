@@ -1,0 +1,24 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 110
+AccessModifierOffset: -4
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakTemplateDeclarations: Yes
+BreakBeforeBraces: Attach
+DerivePointerAlignment: false
+PointerAlignment: Left
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^"'
+    Priority: 1
+  - Regex: '^<idem/'
+    Priority: 2
+  - Regex: '^<(catch2|benchmark)/'
+    Priority: 3
+  - Regex: '^<'
+    Priority: 4
+NamespaceIndentation: None
+SpaceAfterTemplateKeyword: true
+MainIncludeChar: Any

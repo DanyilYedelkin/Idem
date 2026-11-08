@@ -1,0 +1,12 @@
+/build/
+/out/
+/.vs/
+/.vscode/
+/.idea/
+/.cache/
+CMakeUserPresets.json
+compile_commands.json
+
+*.idem
+bench-results*.json
+__pycache__/

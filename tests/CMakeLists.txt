@@ -7,6 +7,7 @@ FetchContent_Declare(Catch2
 FetchContent_MakeAvailable(Catch2)
 
 add_executable(idem_tests
+    broadphase_tests.cpp
     math_tests.cpp
     rng_tests.cpp
     scene_tests.cpp

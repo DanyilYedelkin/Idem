@@ -1,5 +1,4 @@
-#include <idem/broadphase/brute_force.hpp>
-#include <idem/broadphase/uniform_grid.hpp>
+#include <idem/broadphase/broadphase.hpp>
 #include <idem/rng.hpp>
 
 #include <catch2/catch_template_test_macros.hpp>
@@ -45,7 +44,7 @@ void check_pair_invariants(const std::vector<Pair>& sorted, std::size_t box_coun
 
 } // namespace
 
-TEMPLATE_TEST_CASE("broad-phase handles trivial inputs", "[broadphase]", BruteForce, UniformGrid) {
+TEMPLATE_TEST_CASE("broad-phase handles trivial inputs", "[broadphase]", BruteForce, UniformGrid, Bvh) {
     CHECK(sorted_pairs<TestType>({}).empty());
 
     const std::vector<Aabb> one{Aabb::around_sphere({}, 1.0f)};
@@ -55,7 +54,7 @@ TEMPLATE_TEST_CASE("broad-phase handles trivial inputs", "[broadphase]", BruteFo
     CHECK(sorted_pairs<TestType>(two) == std::vector<Pair>{{0, 1}});
 }
 
-TEMPLATE_TEST_CASE("broad-phase reports touching boxes", "[broadphase]", BruteForce, UniformGrid) {
+TEMPLATE_TEST_CASE("broad-phase reports touching boxes", "[broadphase]", BruteForce, UniformGrid, Bvh) {
     const std::vector<Aabb> boxes{
         {{0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
         {{1.0f, 0.0f, 0.0f}, {2.0f, 1.0f, 1.0f}},
@@ -64,7 +63,7 @@ TEMPLATE_TEST_CASE("broad-phase reports touching boxes", "[broadphase]", BruteFo
     CHECK(sorted_pairs<TestType>(boxes) == std::vector<Pair>{{0, 1}});
 }
 
-TEMPLATE_TEST_CASE("broad-phase matches brute force on random scenes", "[broadphase]", UniformGrid) {
+TEMPLATE_TEST_CASE("broad-phase matches brute force on random scenes", "[broadphase]", UniformGrid, Bvh) {
     const auto seed = GENERATE(range<std::uint64_t>(1, 6));
     const auto count = GENERATE(as<std::size_t>{}, 2, 17, 500, 3000);
 
@@ -87,7 +86,7 @@ TEMPLATE_TEST_CASE("broad-phase matches brute force on random scenes", "[broadph
     }
 }
 
-TEMPLATE_TEST_CASE("broad-phase survives degenerate distributions", "[broadphase]", UniformGrid) {
+TEMPLATE_TEST_CASE("broad-phase survives degenerate distributions", "[broadphase]", UniformGrid, Bvh) {
     SECTION("all centres coincide") {
         // Identical Morton codes for every leaf and a single grid cell.
         const std::vector<Aabb> boxes(64, Aabb::around_sphere({3.0f, 3.0f, 3.0f}, 0.5f));
@@ -118,4 +117,12 @@ TEMPLATE_TEST_CASE("broad-phase survives degenerate distributions", "[broadphase
         boxes.push_back(Aabb::around_sphere({}, 25.0f));
         CHECK(sorted_pairs<TestType>(boxes) == sorted_pairs<BruteForce>(boxes));
     }
+}
+
+TEST_CASE("broad-phase kinds round-trip through their names", "[broadphase]") {
+    for (const BroadPhaseKind kind : all_broad_phases) {
+        CHECK(parse_broad_phase(to_string(kind)) == kind);
+        CHECK(make_broad_phase(kind).index() == static_cast<std::size_t>(kind));
+    }
+    CHECK_FALSE(parse_broad_phase("octree").has_value());
 }

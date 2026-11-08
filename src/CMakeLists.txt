@@ -1,5 +1,6 @@
 add_library(idem
     broadphase/brute_force.cpp
+    broadphase/uniform_grid.cpp
     scene.cpp
 )
 add_library(idem::idem ALIAS idem)

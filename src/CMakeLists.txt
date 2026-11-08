@@ -2,7 +2,9 @@ add_library(idem
     broadphase/brute_force.cpp
     broadphase/bvh.cpp
     broadphase/uniform_grid.cpp
+    input.cpp
     scene.cpp
+    simulation.cpp
 )
 add_library(idem::idem ALIAS idem)
 

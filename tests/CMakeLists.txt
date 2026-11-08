@@ -11,6 +11,7 @@ add_executable(idem_tests
     math_tests.cpp
     rng_tests.cpp
     scene_tests.cpp
+    simulation_tests.cpp
 )
 target_link_libraries(idem_tests PRIVATE idem::idem Catch2::Catch2WithMain)
 idem_target_warnings(idem_tests)

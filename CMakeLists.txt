@@ -19,6 +19,7 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(IdemCompilerOptions)
 
 add_subdirectory(src)
+add_subdirectory(apps)
 
 if(IDEM_BUILD_TESTS)
     enable_testing()

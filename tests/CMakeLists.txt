@@ -8,7 +8,9 @@ FetchContent_MakeAvailable(Catch2)
 
 add_executable(idem_tests
     broadphase_tests.cpp
+    determinism_tests.cpp
     math_tests.cpp
+    recording_tests.cpp
     rng_tests.cpp
     scene_tests.cpp
     simulation_tests.cpp

@@ -3,6 +3,8 @@ add_library(idem
     broadphase/bvh.cpp
     broadphase/uniform_grid.cpp
     input.cpp
+    recording.cpp
+    replay.cpp
     scene.cpp
     simulation.cpp
 )

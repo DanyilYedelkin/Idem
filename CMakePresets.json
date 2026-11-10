@@ -31,7 +31,8 @@
       "inherits": "ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "IDEM_SANITIZE": "ON"
+        "IDEM_SANITIZE": "ON",
+        "IDEM_BUILD_BENCHMARKS": "OFF"
       }
     },
     {

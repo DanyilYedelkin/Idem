@@ -12,6 +12,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 option(IDEM_BUILD_TESTS "Build unit tests" ${PROJECT_IS_TOP_LEVEL})
+option(IDEM_BUILD_BENCHMARKS "Build benchmarks" ${PROJECT_IS_TOP_LEVEL})
 option(IDEM_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(IDEM_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 
@@ -24,4 +25,8 @@ add_subdirectory(apps)
 if(IDEM_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if(IDEM_BUILD_BENCHMARKS)
+    add_subdirectory(bench)
 endif()

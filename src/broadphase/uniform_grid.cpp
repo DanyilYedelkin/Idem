@@ -7,28 +7,18 @@ namespace idem {
 
 namespace {
 
-struct CellOffset {
-    int dx, dy, dz;
+struct RowOffset {
+    int dy, dz;
 };
 
-// Half of the 26-neighbourhood: each unordered pair of adjacent cells is visited once.
-constexpr std::array<CellOffset, 13> forward_neighbours = [] {
-    std::array<CellOffset, 13> offsets{};
-    std::size_t count = 0;
-    for (int dz = -1; dz <= 1; ++dz) {
-        for (int dy = -1; dy <= 1; ++dy) {
-            for (int dx = -1; dx <= 1; ++dx) {
-                if (dz > 0 || (dz == 0 && dy > 0) || (dz == 0 && dy == 0 && dx > 0)) {
-                    offsets[count++] = {dx, dy, dz};
-                }
-            }
-        }
-    }
-    return offsets;
-}();
+// Rows of the 3x3x3 neighbourhood that come after the current cell in memory
+// order. Together with x+1 in the current row they visit each unordered pair of
+// adjacent cells exactly once. Cells x-1..x+1 of a row are contiguous after the
+// counting sort, so each row is one range instead of three lookups.
+constexpr std::array<RowOffset, 4> forward_rows{{{1, 0}, {-1, 1}, {0, 1}, {1, 1}}};
 
 // Upper bound on cells per box; keeps memory linear in n for sparse scenes.
-constexpr float max_cells_per_box = 8.0f;
+constexpr float max_cells_per_box = 16.0f;
 
 } // namespace
 
@@ -95,41 +85,45 @@ void UniformGrid::find_pairs(std::span<const Aabb> boxes, std::vector<Pair>& out
     std::shift_right(cell_start_.begin(), cell_start_.end(), 1);
     cell_start_[0] = 0;
 
-    auto test_ranges = [&](std::uint32_t a_begin, std::uint32_t a_end, std::uint32_t b_begin,
-                           std::uint32_t b_end) {
-        for (std::uint32_t i = a_begin; i < a_end; ++i) {
-            const Aabb box = sorted_boxes_[i];
-            for (std::uint32_t j = b_begin; j < b_end; ++j) {
-                if (overlaps(box, sorted_boxes_[j])) {
-                    out.push_back(ordered_pair(sorted_ids_[i], sorted_ids_[j]));
-                }
+    auto test_against = [&](std::uint32_t i, std::uint32_t begin, std::uint32_t end) {
+        const Aabb box = sorted_boxes_[i];
+        for (std::uint32_t j = begin; j < end; ++j) {
+            if (overlaps(box, sorted_boxes_[j])) {
+                out.push_back(ordered_pair(sorted_ids_[i], sorted_ids_[j]));
             }
         }
     };
 
     for (std::uint32_t z = 0; z < nz; ++z) {
         for (std::uint32_t y = 0; y < ny; ++y) {
+            const std::uint32_t row = nx * (y + ny * z);
             for (std::uint32_t x = 0; x < nx; ++x) {
-                const std::uint32_t id = x + nx * (y + ny * z);
-                const std::uint32_t begin = cell_start_[id];
-                const std::uint32_t end = cell_start_[id + 1];
+                const std::uint32_t begin = cell_start_[row + x];
+                const std::uint32_t end = cell_start_[row + x + 1];
                 if (begin == end) {
                     continue;
                 }
 
+                // Own cell and x+1 are adjacent in sorted order: one range per box.
+                const std::uint32_t own_row_end = cell_start_[row + std::min(x + 1, nx - 1) + 1];
                 for (std::uint32_t i = begin; i < end; ++i) {
-                    test_ranges(i, i + 1, i + 1, end);
+                    test_against(i, i + 1, own_row_end);
                 }
 
-                for (const auto [dx, dy, dz] : forward_neighbours) {
-                    const auto ox = static_cast<std::int64_t>(x) + dx;
-                    const auto oy = static_cast<std::int64_t>(y) + dy;
-                    const auto oz = static_cast<std::int64_t>(z) + dz;
-                    if (ox < 0 || oy < 0 || ox >= nx || oy >= ny || oz >= nz) {
+                const std::uint32_t x_lo = x > 0 ? x - 1 : 0;
+                const std::uint32_t x_hi = std::min(x + 1, nx - 1);
+                for (const auto [dy, dz] : forward_rows) {
+                    const std::int64_t oy = std::int64_t{y} + dy;
+                    const std::int64_t oz = std::int64_t{z} + dz;
+                    if (oy < 0 || oy >= ny || oz >= nz) {
                         continue;
                     }
-                    const auto other = static_cast<std::uint32_t>(ox + nx * (oy + std::int64_t{ny} * oz));
-                    test_ranges(begin, end, cell_start_[other], cell_start_[other + 1]);
+                    const auto other = static_cast<std::uint32_t>(nx * (oy + std::int64_t{ny} * oz));
+                    const std::uint32_t range_begin = cell_start_[other + x_lo];
+                    const std::uint32_t range_end = cell_start_[other + x_hi + 1];
+                    for (std::uint32_t i = begin; i < end; ++i) {
+                        test_against(i, range_begin, range_end);
+                    }
                 }
             }
         }

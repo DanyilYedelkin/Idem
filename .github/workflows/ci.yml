@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REFERENCE_ARGS: --bodies 20000 --ticks 600 --seed 1337
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: gcc-14
+            os: ubuntu-24.04
+            cxx: g++-14
+            preset: release
+            bin: build/release/bin
+          - name: clang-19
+            os: ubuntu-24.04
+            cxx: clang++-19
+            install: clang-19
+            preset: release
+            bin: build/release/bin
+          - name: msvc
+            os: windows-2022
+            preset: vs2022
+            build_preset: vs2022-release
+            bin: build/vs2022/bin/Release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build ${{ matrix.install }}
+
+      - name: Configure
+        shell: bash
+        run: >
+          cmake --preset ${{ matrix.preset }}
+          ${{ matrix.cxx && format('-DCMAKE_CXX_COMPILER={0}', matrix.cxx) || '' }}
+          -DIDEM_WARNINGS_AS_ERRORS=ON
+          -DIDEM_BUILD_BENCHMARKS=OFF
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.build_preset || matrix.preset }} --parallel
+
+      - name: Test
+        run: ctest --preset ${{ matrix.build_preset || matrix.preset }} --parallel 4
+
+      - name: Record reference run
+        shell: bash
+        run: ${{ matrix.bin }}/idem record $REFERENCE_ARGS --out reference-${{ matrix.name }}.idem
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reference-${{ matrix.name }}
+          path: reference-${{ matrix.name }}.idem
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.name == 'gcc-14'
+        with:
+          name: idem-linux
+          path: ${{ matrix.bin }}/idem
+
+  format:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y clang-format-19
+      - run: git ls-files '*.cpp' '*.hpp' | xargs clang-format-19 --dry-run --Werror
+
+  sanitizers:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - run: cmake --preset sanitize -DCMAKE_CXX_COMPILER=g++-14
+      - run: cmake --build --preset sanitize --parallel
+      - run: ctest --preset sanitize --parallel 4
+
+  # The point of the project: every toolchain must produce the same bits.
+  cross-compiler-determinism:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Compare recordings
+        run: |
+          chmod +x artifacts/idem
+          sha256sum artifacts/*.idem
+          status=0
+          for other in artifacts/reference-clang-19.idem artifacts/reference-msvc.idem; do
+            echo "::group::gcc-14 vs $(basename "$other")"
+            artifacts/idem diff artifacts/reference-gcc-14.idem "$other" || status=1
+            echo "::endgroup::"
+          done
+          exit $status
+
+      - name: Replay the MSVC recording on Linux
+        run: artifacts/idem replay artifacts/reference-msvc.idem --broadphase bvh
